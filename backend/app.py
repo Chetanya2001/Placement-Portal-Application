@@ -4,13 +4,15 @@ from flask_cors import CORS
 from extensions import db , jwt #import ORM object
 from models import * #load all the database tables
 from models.user import User
-from routes.auth_routes import auth_bp
+from routes import all_blueprints
+
 app = Flask(__name__) #it creates the backend server
 app.config.from_object(Config) #load the configuration to the app
 CORS(app)
 db.init_app(app) # connect flask to the ORM
 jwt.init_app(app)
-app.register_blueprint(auth_bp)
+for blueprint in all_blueprints:
+    app.register_blueprint(blueprint)
 with app.app_context(): #give flask access to app config database application state
     db.create_all()  # creates all the table in the database
     admin = User.query.filter_by(role="admin").first()

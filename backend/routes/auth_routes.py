@@ -42,10 +42,16 @@ def login():
     password = data.get("password")
     user = User.query.filter_by(email=email).first()
     
+    
     if not user:
         return jsonify({
             "message": "Invalid email or password"
         }), 401
+    
+    if user.is_active == False:
+        return jsonify({
+            "message":"User is not active"
+        }), 400
     
     if user.password != password:
         return jsonify({
@@ -53,12 +59,12 @@ def login():
         })
     
     access_token = create_access_token(
-        identity={
-            "id": user.id,
-            "name": user.name,
-            "role": user.role
-        }
-    )
+    identity=str(user.id),
+    additional_claims={
+        "name": user.name,
+        "role": user.role
+    }
+)
 
     return jsonify({
         "message": "Login Successful",
