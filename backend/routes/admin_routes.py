@@ -38,10 +38,6 @@ def dashboard():
     total_companies = Company.query.count()
     total_drives = PlacementDrive.query.count()
     total_applications = Application.query.count()
-    print( total_students)
-    print(total_companies)
-    print(total_drives)
-    print(total_applications)
     return jsonify({
         "students": total_students,
         "companies": total_companies,
