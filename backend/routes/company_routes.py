@@ -20,6 +20,15 @@ def get_current_company():
         return None
     return company
 
+
+def blacklist_response():
+    """Standard response returned whenever a blacklisted company tries to
+    access any protected company endpoint."""
+    return jsonify({
+        "message": "Your company has been blacklisted. Access denied."
+    }), 403
+
+
 @company_bp.route("/register", methods=["POST"])
 def register_company():
     data = request.get_json()
@@ -95,6 +104,9 @@ def dashboard():
     if not company:
         return jsonify({"message": "Unauthorized"}), 403
 
+    if company.is_blacklisted:
+        return blacklist_response()
+
     if company.approval_status != "approved":
         return jsonify({"message": "Company not approved"}), 403
 
@@ -137,6 +149,9 @@ def create_job():
 
     if not company:
         return jsonify({"message":"Unauthorized"}),403
+
+    if company.is_blacklisted:
+        return blacklist_response()
 
     if company.approval_status != "approved":
         return jsonify({"message":"Company not approved"}),403
@@ -182,6 +197,9 @@ def company_jobs():
     if not company:
         return jsonify({"message":"Unauthorized"}),403
 
+    if company.is_blacklisted:
+        return blacklist_response()
+
     drives = PlacementDrive.query.filter_by(
         company_id=company.id
     ).all()
@@ -209,6 +227,9 @@ def view_applicants(drive_id):
 
     if not company:
         return jsonify({"message":"Unauthorized"}),403
+
+    if company.is_blacklisted:
+        return blacklist_response()
 
     drive = PlacementDrive.query.filter_by(
         id=drive_id,
@@ -248,6 +269,9 @@ def shortlist(id):
     if not company:
         return jsonify({"message":"Unauthorized"}),403
 
+    if company.is_blacklisted:
+        return blacklist_response()
+
     application = Application.query.get(id)
 
     if not application:
@@ -269,6 +293,9 @@ def reject(id):
 
     if not company:
         return jsonify({"message":"Unauthorized"}),403
+
+    if company.is_blacklisted:
+        return blacklist_response()
 
     application = Application.query.get(id)
 
@@ -295,6 +322,9 @@ def select_candidate(id):
     if not company:
         return jsonify({"message":"Unauthorized"}),403
 
+    if company.is_blacklisted:
+        return blacklist_response()
+
     application = Application.query.get(id)
 
     if not application:
@@ -319,6 +349,9 @@ def update_status(id):
     if not company:
         return jsonify({"message":"Unauthorized"}),403
 
+    if company.is_blacklisted:
+        return blacklist_response()
+
     drive = PlacementDrive.query.filter_by(
         id=id,
         company_id=company.id
@@ -336,7 +369,7 @@ def update_status(id):
     return jsonify({
         "message":"Status Updated"
     }),200
-    
+
 @company_bp.route("/applications/<int:id>/schedule-interview", methods=["POST"])
 @jwt_required()
 def schedule_interview(id):
@@ -347,6 +380,9 @@ def schedule_interview(id):
         return jsonify({
             "message": "Unauthorized"
         }), 403
+
+    if company.is_blacklisted:
+        return blacklist_response()
 
     application = Application.query.get(id)
 
@@ -367,10 +403,14 @@ def schedule_interview(id):
         }), 400
 
     data = request.get_json()
+    interview_datetime = datetime.strptime(
+    data["interview_date"],
+    "%Y-%m-%dT%H:%M"
+)
 
     interview = InterviewSchedule(
         application_id=application.id,
-        interview_date=data["interview_date"],
+        interview_date=interview_datetime,
         mode=data["mode"],
         meeting_link=data["meeting_link"]
     )
@@ -395,6 +435,9 @@ def update_application_status(id):
         return jsonify({
             "message": "Unauthorized"
         }), 403
+
+    if company.is_blacklisted:
+        return blacklist_response()
 
     application = Application.query.get(id)
 
@@ -436,4 +479,3 @@ def update_application_status(id):
     return jsonify({
         "message": "Application status updated successfully"
     }), 200
-

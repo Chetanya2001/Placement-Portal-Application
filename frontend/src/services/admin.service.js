@@ -81,7 +81,7 @@ export async function rejectCompany(id) {
 }
 //7
 export async function blacklistCompany(id) {
-  const response = await fetch(`${BASE_URL}/companies/${id}/blacklist`, {
+  const response = await fetch(`${BASE_URL}/companies/${id}/blacklisted`, {
     method: "PUT",
     headers: getHeaders(),
   });
@@ -139,5 +139,36 @@ export async function studentDeactivate(id) {
   if (!response.ok) {
     throw new Error(data.message);
   }
+  return data;
+}
+//13
+export async function getApplicationDetail(id) {
+  const response = await fetch(`${BASE_URL}/applications/${id}`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message);
+  }
+
+  return data;
+}
+
+//14
+export async function getStudentProfile(studentId) {
+  const response = await fetch(`${BASE_URL}/profile/${studentId}`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message);
+  }
+
   return data;
 }

@@ -305,9 +305,68 @@ def get_applications():
     for application in applications:
         result.append({
             "id": application.id,
+            "student_id": application.student.id,
             "student": application.student.user.name,
             "job_title": application.drive.job_title,
             "status": application.status
         })
 
     return jsonify(result), 200
+
+@admin_bp.route("/profile/<int:student_id>", methods=["GET"])
+@jwt_required()
+def get_student_profile(student_id):
+    admin = get_current_admin()
+
+    if not admin:
+        return jsonify({"message": "Unauthorized"}), 403
+
+    student = Student.query.get(student_id)
+
+    if not student:
+        return jsonify({"message": "Student not found"}), 404
+
+    return jsonify({
+        "id": student.id,
+        "name": student.user.name,
+        "email": student.user.email,
+        "branch": student.branch,
+        "cgpa": student.cgpa,
+        "year": student.year,
+        "phone": student.phone,
+        "skills": student.skills,
+        "resume": student.resume,
+        "placement_status": student.placement_status
+    }), 200
+
+@admin_bp.route("/applications/<int:id>", methods=["GET"])
+@jwt_required()
+def get_application_detail(id):
+
+    admin = get_current_admin()
+
+    if not admin:
+        return jsonify({"message": "Only Admin Can Access"}), 403
+
+    application = Application.query.get(id)
+
+    if not application:
+        return jsonify({"message": "Application not found"}), 404
+
+    student = application.student
+    drive = application.drive
+
+    return jsonify({
+        "application_id": application.id,
+        "student": student.user.name,
+        "email": student.user.email,
+        "branch": student.branch,
+        "cgpa": student.cgpa,
+        "job_title": drive.job_title,
+        "company": drive.company.company_name,
+        "location": drive.location,
+        "salary": drive.salary_package,
+        "status": application.status,
+        "remarks": application.remarks,
+        "applied_at": application.applied_at
+    }), 200
