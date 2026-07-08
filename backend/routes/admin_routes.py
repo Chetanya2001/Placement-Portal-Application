@@ -8,6 +8,7 @@ from models.company import Company
 from models.placement_drive import PlacementDrive
 from models.application import Application
 from models.user import User
+from tasks.placement_reports import generate_monthly_placement_reports
 
 admin_bp = Blueprint(
     "admin",
@@ -67,6 +68,34 @@ def get_companies():
             "hr_email": company.hr_email,
             "approval_status": company.approval_status,
             "blacklisted": company.is_blacklisted
+        })
+
+    return jsonify(result), 200
+
+
+# --- ADDED --- fetch the full list of students (mirrors get_companies / get_drives)
+@admin_bp.route("/students", methods=["GET"])
+@jwt_required()
+def get_students():
+
+    user = get_current_admin()
+
+    if not user:
+        return jsonify({"message": "Only Admin Can Access"}), 403
+
+    students = Student.query.all()
+
+    result = []
+
+    for student in students:
+        result.append({
+            "id": student.id,
+            "name": student.user.name,
+            "email": student.user.email,
+            "branch": student.branch,
+            "cgpa": student.cgpa,
+            "year": student.year,
+            "is_active": student.user.is_active
         })
 
     return jsonify(result), 200
@@ -370,3 +399,12 @@ def get_application_detail(id):
         "remarks": application.remarks,
         "applied_at": application.applied_at
     }), 200
+
+@admin_bp.route("/reports/generate", methods=["POST"])
+@jwt_required()
+def trigger_report_generation():
+    data = request.get_json() or {}
+    task = generate_monthly_placement_reports.delay(
+        month=data.get("month"), year=data.get("year")
+    )
+    return jsonify({"message": "Report generation started", "task_id": task.id}), 202

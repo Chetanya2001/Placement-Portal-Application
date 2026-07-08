@@ -172,3 +172,19 @@ export async function getStudentProfile(studentId) {
 
   return data;
 }
+
+//15
+export async function getStudents() {
+  const response = await fetch(`${BASE_URL}/students`, {
+    method: "GET",
+    headers: getHeaders(),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message);
+  }
+
+  return data;
+}

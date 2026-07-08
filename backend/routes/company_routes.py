@@ -7,6 +7,8 @@ from models.company import Company
 from models.application import Application
 from models.placement_drive import PlacementDrive
 from models.interview_schedule import InterviewSchedule
+from tasks.csv_export import export_company_history
+from utils.cache_utils import cache_response, delete_pattern, delete_cache
 
 company_bp = Blueprint("company", __name__, url_prefix="/api/company")
 
@@ -190,6 +192,7 @@ def create_job():
 
 @company_bp.route("/jobs", methods=["GET"])
 @jwt_required()
+@cache_response("company:jobs", ttl=180, include_identity=True)
 def company_jobs():
 
     company = get_current_company()
@@ -221,6 +224,7 @@ def company_jobs():
 
 @company_bp.route("/jobs/<int:drive_id>/applications", methods=["GET"])
 @jwt_required()
+@cache_response("applicants", ttl=60)
 def view_applicants(drive_id):
 
     company = get_current_company()
@@ -479,3 +483,20 @@ def update_application_status(id):
     return jsonify({
         "message": "Application status updated successfully"
     }), 200
+
+@company_bp.route("/export", methods=["POST"])
+@jwt_required()
+def trigger_company_export():
+    company_id = get_jwt_identity()
+    task = export_company_history.delay(company_id)
+    return jsonify({"message": "Export started", "task_id": task.id}), 202
+ 
+ 
+@company_bp.route("/export/status/<task_id>", methods=["GET"])
+@jwt_required()
+def company_export_status(task_id):
+    task = export_company_history.AsyncResult(task_id)
+    return jsonify({
+        "state": task.state,
+        "result": task.result if task.ready() else None,
+    })

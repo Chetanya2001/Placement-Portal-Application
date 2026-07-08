@@ -9,12 +9,14 @@ from models.placement_drive import PlacementDrive
 from models.student import Student
 from models.application import Application
 from models.interview_schedule import InterviewSchedule
+from tasks.csv_export import export_student_history
 
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import inch
+from utils.cache_utils import cache_response, delete_pattern
 
 
 student_bp = Blueprint("student", __name__, url_prefix="/api/student")
@@ -143,6 +145,7 @@ def update_profile():
 
 @student_bp.route("/jobs", methods=["GET"])
 @jwt_required()
+@cache_response("jobs:list", ttl=180, query_params=["company", "position", "skill"])
 def browse_jobs():
     student = get_current_student()
 
@@ -197,6 +200,7 @@ def browse_jobs():
 
 @student_bp.route("/jobs/<int:drive_id>", methods=["GET"])
 @jwt_required()
+@cache_response("jobs:detail", ttl=300)
 def job_detail(drive_id):
     student = get_current_student()
 
@@ -557,3 +561,21 @@ def _build_offer_letter_pdf(student, application, drive, company):
 
     buffer.seek(0)
     return buffer
+
+@student_bp.route("/export", methods=["POST"])
+@jwt_required()
+def trigger_student_export():
+    student_id = get_jwt_identity()
+    task = export_student_history.delay(student_id)
+    # 202 Accepted = "request understood, work is happening in the background"
+    return jsonify({"message": "Export started", "task_id": task.id}), 202
+ 
+ 
+@student_bp.route("/export/status/<task_id>", methods=["GET"])
+@jwt_required()
+def student_export_status(task_id):
+    task = export_student_history.AsyncResult(task_id)
+    return jsonify({
+        "state": task.state,          # PENDING / STARTED / SUCCESS / FAILURE
+        "result": task.result if task.ready() else None,
+    })

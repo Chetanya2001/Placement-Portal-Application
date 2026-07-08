@@ -55,15 +55,20 @@ View interview schedules and feedback from companies. DONE
 Download offer letters or placement confirmations. DONE
 
 MileStone 6:
-Store and display complete application and placement history.
-Prevent duplicate applications for the same job posting.DONE
+Store and display complete application and placement history. DONE
+Prevent duplicate applications for the same job posting. DONE
 Ensure only approved companies can create placement drives. DONE
 Ensure students can view and apply only to approved placement drives. DONE
 Maintain status updates (Applied / Shortlisted / Interview / Offer / Rejected / Placed).DONE
-Admin and Company can view student profiles and applications; Students can view their own records.
+Admin and Company can view student profiles and applications; Students can view their own records. DONE
 
 MileStone 7:
-Setup Celery workers, Celery Beat, and Redis server.
-Interview Reminder Job: send reminders (Email / GChat / SMS) to students with scheduled interviews.
-Placement Report Job: generate monthly reports for companies (HTML / PDF) with application statistics, placements, and analytics.
-User-triggered CSV Export: students and companies can export application and placement history asynchronously; alert sent once the batch job is complete.
+Setup Celery workers, Celery Beat, and Redis server. DONE
+Interview Reminder Job: send reminders (Email / GChat / SMS) to students with scheduled interviews. DONE
+Placement Report Job: generate monthly reports for companies (HTML / PDF) with application statistics, placements, and analytics. DONE
+User-triggered CSV Export: students and companies can export application and placement history asynchronously; alert sent once the batch job is complete.DONE
+
+Milestone 8:
+Use Redis caching for API optimization. DONE
+Cache frequently used endpoints (job listings, company search, student search).DONE
+Implement proper cache expiry and refresh policies.DONE

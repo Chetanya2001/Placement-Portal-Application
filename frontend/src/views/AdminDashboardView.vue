@@ -6,6 +6,7 @@ import {
   getCompanies,
   getDashboard,
   getDrives,
+  getStudents,
   approveCompany,
   approveDrive,
   blacklistCompany,
@@ -34,7 +35,13 @@ const isLoading = ref(true); // true on first load, drives the skeleton state
 const loadError = ref(null); // populated if loadData() throws
 const isSearching = ref(false); // spinner on the Search button
 const actionInFlight = ref(null); // id currently processing, for per-row button spinners
-const isCompactView = ref(false); // compact vs detailed density toggle for admins
+
+// --- ADDED --- full students list (used by the "Students" stat-card modal)
+const students = ref([]);
+
+// --- ADDED --- state for the stat-card "list everything" modal
+// type: 'students' | 'companies' | 'drives' | 'applications'
+const activeListModal = ref(null);
 
 // Handles either `blacklisted` or `is_blacklisted` coming back from the API,
 // and shows that instead of the approval status once a company is blacklisted.
@@ -61,6 +68,15 @@ function genericStatusClass(status) {
   return "status-pending";
 }
 
+// --- ADDED --- opens the "list everything" modal for the clicked stat card
+function openListModal(type) {
+  activeListModal.value = type;
+}
+
+function closeListModal() {
+  activeListModal.value = null;
+}
+
 const handleViewApplication = async (id) => {
   try {
     selectedApplication.value = await getApplicationDetail(id);
@@ -84,6 +100,7 @@ const loadData = async () => {
     companies.value = await getCompanies();
     drives.value = await getDrives();
     applications.value = await getApplications();
+    students.value = await getStudents(); // --- ADDED ---
   } catch (error) {
     console.log(error);
     loadError.value =
@@ -231,30 +248,6 @@ onMounted(() => {
       <span>{{ loadError }}</span>
       <button class="btn-outline" @click="loadData">Try again</button>
     </div>
-
-    <!-- Density toggle -->
-    <div class="view-toggle">
-      <span class="view-toggle-label">Density</span>
-      <div class="segmented" role="tablist" aria-label="Table density">
-        <button
-          role="tab"
-          :aria-selected="!isCompactView"
-          :class="{ active: !isCompactView }"
-          @click="isCompactView = false"
-        >
-          Detailed
-        </button>
-        <button
-          role="tab"
-          :aria-selected="isCompactView"
-          :class="{ active: isCompactView }"
-          @click="isCompactView = true"
-        >
-          Compact
-        </button>
-      </div>
-    </div>
-
     <!-- Stat cards -->
     <div class="stats">
       <template v-if="isLoading">
@@ -264,19 +257,44 @@ onMounted(() => {
         </div>
       </template>
       <template v-else>
-        <div class="stat-card">
+        <!-- --- ADDED: @click handlers + clickable class on each stat card --- -->
+        <div
+          class="stat-card clickable"
+          role="button"
+          tabindex="0"
+          @click="openListModal('students')"
+          @keyup.enter="openListModal('students')"
+        >
           <h3>Students</h3>
           <p>{{ dashboard.students ?? 0 }}</p>
         </div>
-        <div class="stat-card">
+        <div
+          class="stat-card clickable"
+          role="button"
+          tabindex="0"
+          @click="openListModal('companies')"
+          @keyup.enter="openListModal('companies')"
+        >
           <h3>Companies</h3>
           <p>{{ dashboard.companies ?? 0 }}</p>
         </div>
-        <div class="stat-card accent">
+        <div
+          class="stat-card accent clickable"
+          role="button"
+          tabindex="0"
+          @click="openListModal('drives')"
+          @keyup.enter="openListModal('drives')"
+        >
           <h3>Drives</h3>
           <p>{{ dashboard.placement_drives ?? 0 }}</p>
         </div>
-        <div class="stat-card">
+        <div
+          class="stat-card clickable"
+          role="button"
+          tabindex="0"
+          @click="openListModal('applications')"
+          @keyup.enter="openListModal('applications')"
+        >
           <h3>Applications</h3>
           <p>{{ dashboard.applications ?? 0 }}</p>
         </div>
@@ -290,7 +308,7 @@ onMounted(() => {
         <span class="count-chip">{{ companies.length }}</span>
       </div>
 
-      <div class="table-wrap" :class="{ compact: isCompactView }">
+      <div class="table-wrap">
         <table v-if="isLoading">
           <thead>
             <tr>
@@ -584,7 +602,7 @@ onMounted(() => {
     <!-- Application detail modal -->
     <div
       v-if="selectedApplication"
-      class="modal-overlay"
+      class="modal-overlay modal-overlay-top"
       @click.self="selectedApplication = null"
     >
       <div class="modal" role="dialog" aria-modal="true">
@@ -660,7 +678,7 @@ onMounted(() => {
     <!-- Student profile modal -->
     <div
       v-if="selectedStudent"
-      class="modal-overlay"
+      class="modal-overlay modal-overlay-top"
       @click.self="selectedStudent = null"
     >
       <div class="modal" role="dialog" aria-modal="true">
@@ -714,6 +732,316 @@ onMounted(() => {
           <button class="btn-outline" @click="selectedStudent = null">
             Close
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- --- ADDED: Students list modal (every student, opened from the Students stat card) --- -->
+    <div
+      v-if="activeListModal === 'students'"
+      class="modal-overlay"
+      @click.self="closeListModal"
+    >
+      <div class="modal modal-lg" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h2>All Students</h2>
+          <button
+            class="modal-close"
+            aria-label="Close"
+            @click="closeListModal"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="table-wrap">
+            <table v-if="students.length">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Branch</th>
+                  <th>CGPA</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="student in students" :key="student.id">
+                  <td class="cell-primary">{{ student.name }}</td>
+                  <td>{{ student.email }}</td>
+                  <td>{{ student.branch }}</td>
+                  <td>{{ student.cgpa }}</td>
+                  <td class="actions-cell">
+                    <button
+                      class="approve"
+                      @click="handleViewStudent(student.id)"
+                    >
+                      View
+                    </button>
+                    <button
+                      class="blacklist"
+                      :disabled="actionInFlight === student.id"
+                      @click="handleDeactivateStudent(student.id)"
+                    >
+                      <span
+                        v-if="actionInFlight === student.id"
+                        class="spinner"
+                        aria-hidden="true"
+                      ></span>
+                      Deactivate
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p class="empty-title">No students found</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" @click="closeListModal">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- --- ADDED: Companies list modal (every company, opened from the Companies stat card) --- -->
+    <div
+      v-if="activeListModal === 'companies'"
+      class="modal-overlay"
+      @click.self="closeListModal"
+    >
+      <div class="modal modal-lg" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h2>All Companies</h2>
+          <button
+            class="modal-close"
+            aria-label="Close"
+            @click="closeListModal"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="table-wrap">
+            <table v-if="companies.length">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="company in companies" :key="company.id">
+                  <td class="cell-primary">{{ company.company_name }}</td>
+                  <td>
+                    <span class="status-badge" :class="statusClass(company)">
+                      {{ companyStatus(company) }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <button
+                      class="approve"
+                      :disabled="
+                        (company.blacklisted ?? company.is_blacklisted) ||
+                        actionInFlight === company.id
+                      "
+                      @click="handleApproveCompany(company.id)"
+                    >
+                      <span
+                        v-if="actionInFlight === company.id"
+                        class="spinner"
+                        aria-hidden="true"
+                      ></span>
+                      Approve
+                    </button>
+                    <button
+                      class="reject"
+                      :disabled="
+                        (company.blacklisted ?? company.is_blacklisted) ||
+                        actionInFlight === company.id
+                      "
+                      @click="handleRejectCompany(company.id)"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      class="blacklist"
+                      :disabled="
+                        (company.blacklisted ?? company.is_blacklisted) ||
+                        actionInFlight === company.id
+                      "
+                      @click="handleBlacklistCompany(company.id)"
+                    >
+                      {{
+                        (company.blacklisted ?? company.is_blacklisted)
+                          ? "Blacklisted"
+                          : "Blacklist"
+                      }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p class="empty-title">No companies found</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" @click="closeListModal">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- --- ADDED: Drives list modal (every drive, opened from the Drives stat card) --- -->
+    <div
+      v-if="activeListModal === 'drives'"
+      class="modal-overlay"
+      @click.self="closeListModal"
+    >
+      <div class="modal modal-lg" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h2>All Placement Drives</h2>
+          <button
+            class="modal-close"
+            aria-label="Close"
+            @click="closeListModal"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="table-wrap">
+            <table v-if="drives.length">
+              <thead>
+                <tr>
+                  <th>Job Title</th>
+                  <th>Company</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="drive in drives" :key="drive.id">
+                  <td class="cell-primary">{{ drive.job_title }}</td>
+                  <td>{{ drive.company }}</td>
+                  <td>
+                    <span
+                      class="status-badge"
+                      :class="genericStatusClass(drive.status)"
+                    >
+                      {{ drive.status }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <button
+                      class="approve"
+                      :disabled="actionInFlight === drive.id"
+                      @click="handleApproveDrive(drive.id)"
+                    >
+                      <span
+                        v-if="actionInFlight === drive.id"
+                        class="spinner"
+                        aria-hidden="true"
+                      ></span>
+                      Approve
+                    </button>
+                    <button
+                      class="reject"
+                      :disabled="actionInFlight === drive.id"
+                      @click="handleDeleteDrive(drive.id)"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p class="empty-title">No placement drives found</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" @click="closeListModal">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- --- ADDED: Applications list modal (every application, opened from the Applications stat card) --- -->
+    <div
+      v-if="activeListModal === 'applications'"
+      class="modal-overlay"
+      @click.self="closeListModal"
+    >
+      <div class="modal modal-lg" role="dialog" aria-modal="true">
+        <div class="modal-header">
+          <h2>All Applications</h2>
+          <button
+            class="modal-close"
+            aria-label="Close"
+            @click="closeListModal"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="table-wrap">
+            <table v-if="applications.length">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Job</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="application in applications" :key="application.id">
+                  <td class="cell-primary">{{ application.student }}</td>
+                  <td>{{ application.job_title }}</td>
+                  <td>
+                    <span
+                      class="status-badge"
+                      :class="genericStatusClass(application.status)"
+                    >
+                      {{ application.status }}
+                    </span>
+                  </td>
+                  <td class="actions-cell">
+                    <button
+                      class="approve"
+                      @click="handleViewApplication(application.id)"
+                    >
+                      View Application
+                    </button>
+                    <button
+                      class="blacklist"
+                      @click="handleViewStudent(application.student_id)"
+                    >
+                      View Student
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            <div v-else class="empty-state">
+              <p class="empty-title">No applications found</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" @click="closeListModal">Close</button>
         </div>
       </div>
     </div>
@@ -968,38 +1296,6 @@ button:disabled {
   color: var(--red);
 }
 
-/* ---------------- Density toggle ---------------- */
-.view-toggle {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  justify-content: flex-end;
-  margin-bottom: 18px;
-}
-.view-toggle-label {
-  font-size: 12px;
-  color: var(--gray-600);
-}
-.segmented {
-  display: inline-flex;
-  background: var(--gray-100);
-  border-radius: 8px;
-  padding: 3px;
-}
-.segmented button {
-  background: transparent;
-  color: var(--gray-600);
-  padding: 6px 14px;
-  min-height: auto;
-  font-size: 12px;
-  border-radius: 6px;
-}
-.segmented button.active {
-  background: var(--white);
-  color: var(--black);
-  box-shadow: var(--shadow);
-}
-
 /* ---------------- Stat cards ---------------- */
 .stats {
   display: grid;
@@ -1019,6 +1315,10 @@ button:disabled {
 .stat-card:hover {
   box-shadow: var(--shadow-hover);
   transform: translateY(-2px);
+}
+/* --- ADDED: visual affordance for clickable stat cards --- */
+.stat-card.clickable {
+  cursor: pointer;
 }
 .stat-card.accent {
   border-color: var(--green);
@@ -1210,6 +1510,16 @@ table tbody tr:last-child td {
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: var(--shadow-hover);
+}
+/* --- ADDED: wider modal variant for the record-list modals --- */
+.modal.modal-lg {
+  max-width: 900px;
+}
+/* --- ADDED: ensures the Application/Student detail modal always renders
+   above the record-list modals (e.g. when "View Application" is clicked
+   from inside the "All Applications" list modal) regardless of DOM order --- */
+.modal-overlay.modal-overlay-top {
+  z-index: 60;
 }
 .modal-header {
   display: flex;
